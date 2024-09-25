@@ -1,5 +1,14 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
 .App {
   text-align: center;
+}
+
+.recharts-surface {
+  font-family: 'Nunito Sans', sans-serif;
+  overflow: visible;
 }
 
 .App-logo {

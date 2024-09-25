@@ -1,70 +1,60 @@
-# Getting Started with Create React App
+# Laws of Form - Truth Table Explorer
 
-This project was bootstrapped with [Create React App](https://github.com/facebook/create-react-app).
+## About
 
-## Available Scripts
+A little web app to help explore Laws of Form expressions through truth tables.
 
-In the project directory, you can run:
+## Evaluation of Expressions
 
-### `npm start`
+...
 
-Runs the app in the development mode.\
-Open [http://localhost:3000](http://localhost:3000) to view it in your browser.
+## Credits
 
-The page will reload when you make changes.\
-You may also see any lint errors in the console.
+- Laws of Form - George Spencer-Brown
+- Laws of Form Notation for React - Kevin
 
-### `npm test`
+## Build Game to Github Pages
 
-Launches the test runner in the interactive watch mode.\
-See the section about [running tests](https://facebook.github.io/create-react-app/docs/running-tests) for more information.
+Tarati is deployed for free on GitHub pages. Publish by configuring `gh-pages` correctly.
 
-### `npm run build`
+Install gh-pages:
 
-Builds the app for production to the `build` folder.\
-It correctly bundles React in production mode and optimizes the build for the best performance.
+```
+npm install gh-pages --save-dev
+```
 
-The build is minified and the filenames include the hashes.\
-Your app is ready to be deployed!
+Add the following to package.json
 
-See the section about [deployment](https://facebook.github.io/create-react-app/docs/deployment) for more information.
+```javascript
+"scripts": { // <-- in scripts in package.json
+    "predeploy": "npm run build",
+    "deploy": "gh-pages -d build", // <-- add this line
+    "start": "react-scripts start",
+    "build": "react-scripts build",
+    "test": "react-scripts test",
+    "eject": "react-scripts eject"
+  },
+```
 
-### `npm run eject`
+Also add the final github url of your repo to the package.json file:
 
-**Note: this is a one-way operation. Once you `eject`, you can't go back!**
+```javascript
+{
+  "name": "tarati-react",
+  "version": "0.1.0",
+  "author": "adamblvck",
+  "homepage": "https://adamblvck.github.io/tarati-react",
+  "private": false,
+  "dependencies": {
+    "@dnd-kit/core": "^6.1.0",
+    "@dnd-kit/utilities": "^3.2.2",
+    ...
+  }
+  ,
+  ...
+}
 
-If you aren't satisfied with the build tool and configuration choices, you can `eject` at any time. This command will remove the single build dependency from your project.
-
-Instead, it will copy all the configuration files and the transitive dependencies (webpack, Babel, ESLint, etc) right into your project so you have full control over them. All of the commands except `eject` will still work, but they will point to the copied scripts so you can tweak them. At this point you're on your own.
-
-You don't have to ever use `eject`. The curated feature set is suitable for small and middle deployments, and you shouldn't feel obligated to use this feature. However we understand that this tool wouldn't be useful if you couldn't customize it when you are ready for it.
-
-## Learn More
-
-You can learn more in the [Create React App documentation](https://facebook.github.io/create-react-app/docs/getting-started).
-
-To learn React, check out the [React documentation](https://reactjs.org/).
-
-### Code Splitting
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/code-splitting](https://facebook.github.io/create-react-app/docs/code-splitting)
-
-### Analyzing the Bundle Size
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/analyzing-the-bundle-size](https://facebook.github.io/create-react-app/docs/analyzing-the-bundle-size)
-
-### Making a Progressive Web App
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/making-a-progressive-web-app](https://facebook.github.io/create-react-app/docs/making-a-progressive-web-app)
-
-### Advanced Configuration
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/advanced-configuration](https://facebook.github.io/create-react-app/docs/advanced-configuration)
-
-### Deployment
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/deployment](https://facebook.github.io/create-react-app/docs/deployment)
-
-### `npm run build` fails to minify
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/troubleshooting#npm-run-build-fails-to-minify](https://facebook.github.io/create-react-app/docs/troubleshooting#npm-run-build-fails-to-minify)
+Then run the deploy command:
+```
+npm run deploy
+```
