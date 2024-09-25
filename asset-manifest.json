@@ -1,15 +1,15 @@
 {
   "files": {
     "main.css": "/lof-truthtable/static/css/main.b970f17d.css",
-    "main.js": "/lof-truthtable/static/js/main.6de88683.js",
+    "main.js": "/lof-truthtable/static/js/main.65731d77.js",
     "static/js/453.67d11b5c.chunk.js": "/lof-truthtable/static/js/453.67d11b5c.chunk.js",
     "index.html": "/lof-truthtable/index.html",
     "main.b970f17d.css.map": "/lof-truthtable/static/css/main.b970f17d.css.map",
-    "main.6de88683.js.map": "/lof-truthtable/static/js/main.6de88683.js.map",
+    "main.65731d77.js.map": "/lof-truthtable/static/js/main.65731d77.js.map",
     "453.67d11b5c.chunk.js.map": "/lof-truthtable/static/js/453.67d11b5c.chunk.js.map"
   },
   "entrypoints": [
     "static/css/main.b970f17d.css",
-    "static/js/main.6de88683.js"
+    "static/js/main.65731d77.js"
   ]
 }
