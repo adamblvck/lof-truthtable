@@ -250,12 +250,12 @@ const LoFTruthTables = () => {
                             <LoF style={{fontSize: '10px', height: '100%'}}
                                 className="text-[10px] h-1"
                               >  
-                                ()
+                                (())
                             </LoF>
                             : <LoF style={{fontSize: '10px', height: '100%'}}
                               className="text-[10px] h-1"
                             >  
-                              (())
+                              ()
                           </LoF>
                             ) : <LoF style={{fontSize: '10px', height: '100%'}}
                                   className="text-[10px] h-1"
