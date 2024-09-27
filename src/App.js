@@ -37,7 +37,7 @@ const evaluateBF = (str, steps = []) => {
     const rules = {
       '()1()3': '()2', '()3()1': '()2', '()1()1': '()1', '()3()3': '()3',
       '()3()0': '()3', '()1()0': '()1', '()1()2': '()2', '()2()1': '()2',
-      '()2()2': '()2', '()3()2': '()2', '()2()3': '()2'
+      '()2()2': '()2', '()3()2': '()2', '()2()3': '()2',
     };
     
     let prev = '';
@@ -306,3 +306,5 @@ const LoFTruthTables = () => {
 };
 
 export default LoFTruthTables;
+
+module.exports = { evaluateBF }; // Export the function
