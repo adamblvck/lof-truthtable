@@ -33,34 +33,74 @@ const evaluate = (str, steps = [], bfMode) => {
 };
 
 const evaluateBF = (str, steps = []) => {
-  const simplifyBF = (s) => {
-    const rules = {
-      '()1()3': '()2', '()3()1': '()2', '()1()1': '()1', '()3()3': '()3',
-      '()3()0': '()3', '()1()0': '()1', '()1()2': '()2', '()2()1': '()2',
-      '()2()2': '()2', '()3()2': '()2', '()2()3': '()2',
-    };
-    
-    let prev = '';
-    while (s !== prev) {
-      prev = s;
-      for (const [pattern, replacement] of Object.entries(rules)) {
-        s = s.replace(new RegExp(pattern, 'g'), replacement);
-      }
-      // Handle (()a) = (()a)2 and then (()a)b = ()(a+b mod 4)
-      s = s.replace(/\(\(\)(\d)\)/g, (_, a) => `()(${(parseInt(a) + 2) % 4})`);
-      s = s.replace(/\(\)(\d)\(\)(\d)/g, (_, a, b) => `()(${(parseInt(a) + parseInt(b)) % 4})`);
-    }
-    return s;
-  };
+	const simplifyBF = (s) => {
+		// Remove all whitespace from the input string
+		s = s.replace(/\s+/g, '');
 
-  let result = str;
-  let prev = '';
-  while (result !== prev) {
-    prev = result;
-    result = simplifyBF(result);
-    if (result !== prev) steps.push(result);
-  }
-  return { result, steps };
+		const rules = {
+			'\(\)1\(\)3': '()2', '\(\)3\(\)1': '()2', '\(\)1\(\)1': '()1', '\(\)3\\()3': '()3',
+			'\(\)3\(\)0': '()3', '\(\)1\(\)0': '()1', '\(\)1\(\)2': '()2', '\(\)2\(\)1': '()2',
+			'\(\)2\(\)2': '()2', '\(\)3\(\)2': '()2', '\(\)2\(\)3': '()2', '\(\)0\(\)0': '()0', 
+      '\(\)2\(\)0': '()2', '\(\)0\(\)1': '()1', '\(\)0\(\)2': '()2', '\(\)3\(\)3': '()3', 
+      '\(\)0\(\)3': '()3',
+		};
+
+		// Enrich with twos
+		const enrichWithTwos = (input) => {
+			let result = input;
+			let stack = [];
+			let insertions = [];
+
+			for (let i = 0; i < result.length; i++) {
+				if (result[i] === '(') {
+					stack.push(i);
+				} else if (result[i] === ')') {
+					let openIndex = stack.pop();
+					// Check if this pair doesn't already have a number after it
+					if (i === result.length - 1 || isNaN(parseInt(result[i + 1]))) {
+						insertions.push(i + 1);
+					}
+				}
+			}
+
+			// Insert '2's from right to left
+			for (let i = insertions.length - 1; i >= 0; i--) {
+				result = result.slice(0, insertions[i]) + '2' + result.slice(insertions[i]);
+			}
+
+			return result;
+		};
+
+		s = enrichWithTwos(s);
+		console.log("After enrichment:", s);
+	  
+		let prev = '';
+		while (s !== prev) {
+			prev = s;
+			for (const [pattern, replacement] of Object.entries(rules)) {
+				const r = `${s}`;
+				s = s.replace(pattern, replacement);
+
+				if (s !== r)
+					console.log(s);
+			}
+			// Handle ( ()a)b = ()(a+b mod 4)
+			let r = `${s}`;
+			s = s.replace(/\(\(\)(\d)\)(\d)/g, (_, a, b) => `()${(parseInt(a) + parseInt(b)) % 4}`);
+			if (s !== r)
+				console.log(s);
+		}
+		return s;
+	};
+  
+	let result = str;
+	let prev = '';
+	while (result !== prev) {
+	  prev = result;
+	  result = simplifyBF(result);
+	  if (result !== prev) steps.push(result);
+	}
+	return { result, steps };
 };
 
 const measure = (str) => {
@@ -93,6 +133,7 @@ const truthTable = (str, bfMode) => {
         matched => combination[matched]);
     }).join('');
     const { result, steps } = evaluate(expr, [], bfMode);
+    console.log(result);
     return { ...combination, VALUE: result, steps };
   });
 };
@@ -146,10 +187,19 @@ const LoFTruthTables = () => {
     { caption: 'Triangle Inequality', string: '((A)B) ((B)C) (C)A' },
   ];
 
-  const pieData = table.length ? [
-    { name: '()', value: table.filter(row => row.VALUE !== '').length },
-    { name: '(())', value: table.filter(row => row.VALUE === '').length },
-  ] : [];
+  const pieData = table.length ? (
+    bfMode
+      ? [
+          { name: '()0', value: table.filter(row => row.VALUE === '()0').length },
+          { name: '()1', value: table.filter(row => row.VALUE === '()1').length },
+          { name: '()2', value: table.filter(row => row.VALUE === '()2').length },
+          { name: '()3', value: table.filter(row => row.VALUE === '()3').length },
+        ]
+      : [
+          { name: '()', value: table.filter(row => row.VALUE !== '').length },
+          { name: '(())', value: table.filter(row => row.VALUE === '').length },
+        ]
+  ) : [];
 
   return (
     <div className={`p-4 max-w-4xl mx-auto font-sans ${darkMode ? 'dark' : ''}`}>
@@ -175,11 +225,11 @@ const LoFTruthTables = () => {
             placeholder="Enter expression"
           />
           <div className="pl-4 pb-4 flex-row text-[20px]">
-            {"Z = "}<LoF style={{fontSize: '20px', height: '100%'}}
+            {"Z = "}{ !bfMode ?<LoF style={{fontSize: '20px', height: '100%'}}
               className=""
             >  
               {input}
-          </LoF>
+          </LoF> : input}
           </div>
         </div>
         
@@ -233,42 +283,44 @@ const LoFTruthTables = () => {
         {table.length > 0 && (
           <>
             <div className="flex-1 overflow-x-auto">
-              <table className="w-full border-collapse">
-                <thead>
-                  <tr>
-                    {Object.keys(table[0]).filter(key => key !== 'steps').map((key) => (
-                      <th key={key} className="border p-2 dark:border-gray-600">{key}</th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody>
-                  {table.map((row, index) => (
-                    <tr key={index}>
-                      {Object.entries(row).filter(([key]) => key !== 'steps').map(([key, value], i) => (
-                        <td key={i} className="border p-2 dark:border-gray-600">
-                          {!bfMode && key === 'VALUE' ? (value === '' ?
-                            <LoF style={{fontSize: '10px', height: '100%'}}
-                                className="text-[10px] h-1"
-                              >  
-                                (())
-                            </LoF>
-                            : <LoF style={{fontSize: '10px', height: '100%'}}
-                              className="text-[10px] h-1"
-                            >  
-                              ()
-                          </LoF>
-                            ) : <LoF style={{fontSize: '10px', height: '100%'}}
-                                  className="text-[10px] h-1"
-                                >  
-                                  {value}
-                              </LoF>
-                          }
-                        </td>
+              <div className="max-h-[500px] overflow-y-auto">
+                <table className="w-full border-collapse">
+                  <thead>
+                    <tr>
+                      {Object.keys(table[0]).filter(key => key !== 'steps').map((key) => (
+                        <th key={key} className="border p-2 dark:border-gray-600">{key}</th>
                       ))}
                     </tr>
-                  ))}
-                </tbody>
-              </table>
+                  </thead>
+                  <tbody>
+                    {table.map((row, index) => (
+                      <tr key={index}>
+                        {Object.entries(row).filter(([key]) => key !== 'steps').map(([key, value], i) => (
+                          <td key={i} className="border p-2 dark:border-gray-600">
+                            {!bfMode && key === 'VALUE' ? (value === '' ?
+                              <LoF style={{fontSize: '10px', height: '100%'}}
+                                  className="text-[10px] h-1"
+                                >  
+                                  (())
+                              </LoF>
+                              : <LoF style={{fontSize: '10px', height: '100%'}}
+                                className="text-[10px] h-1"
+                              >  
+                                ()
+                            </LoF>
+                              ) : <LoF style={{fontSize: '10px', height: '100%'}}
+                                    className="text-[10px] h-1"
+                                  >  
+                                    {value}
+                                </LoF>
+                            }
+                          </td>
+                        ))}
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
             </div>
             <div className="flex-1 flex justify-center items-center">
               <PieChart width={200} height={200}>
@@ -282,8 +334,15 @@ const LoFTruthTables = () => {
                   fill="#8884d8"
                   label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
                 >
-                  <Cell fill={darkMode ? "#6B7280" : "#3B82F6"} />
-                  <Cell fill={darkMode ? "#4B5563" : "#60A5FA"} />
+                  {pieData.map((entry, index) => (
+                    <Cell
+                      key={`cell-${index}`}
+                      fill={darkMode
+                        ? ['#FFFF00', '#FF4500', '#228B22', '#1E90FF'][index] // Dark mode colors
+                        : ['#FFFFE0', '#FF6347', '#32CD32', '#87CEFA'][index] // Light mode colors
+                      }
+                    />
+                  ))}
                 </Pie>
               </PieChart>
             </div>
@@ -306,5 +365,3 @@ const LoFTruthTables = () => {
 };
 
 export default LoFTruthTables;
-
-module.exports = { evaluateBF }; // Export the function
