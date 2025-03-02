@@ -1,7 +1,8 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { PieChart, Pie, Cell } from 'recharts';
 import { AlertCircle, Moon, Sun } from 'lucide-react';
 import { Switch } from '@headlessui/react';
+import Knob from './components/Knob';
 
 import './App.css';
 import LoF from "laws-of-form-react"
@@ -33,74 +34,103 @@ const evaluate = (str, steps = [], bfMode) => {
 };
 
 const evaluateBF = (str, steps = []) => {
-	const simplifyBF = (s) => {
-		// Remove all whitespace from the input string
-		s = s.replace(/\s+/g, '');
+  const simplifyBF = (s) => {
+    // Remove all whitespace from the input string.
+    s = s.replace(/\s+/g, '');
 
-		const rules = {
-			'\(\)1\(\)3': '()2', '\(\)3\(\)1': '()2', '\(\)1\(\)1': '()1', '\(\)3\\()3': '()3',
-			'\(\)3\(\)0': '()3', '\(\)1\(\)0': '()1', '\(\)1\(\)2': '()2', '\(\)2\(\)1': '()2',
-			'\(\)2\(\)2': '()2', '\(\)3\(\)2': '()2', '\(\)2\(\)3': '()2', '\(\)0\(\)0': '()0', 
-      '\(\)2\(\)0': '()2', '\(\)0\(\)1': '()1', '\(\)0\(\)2': '()2', '\(\)3\(\)3': '()3', 
-      '\(\)0\(\)3': '()3',
-		};
+    const rules = {
+      '\\(\\)1\\(\\)3': '()2',
+      '\\(\\)3\\(\\)1': '()2',
+      '\\(\\)1\\(\\)1': '()1',
+      '\\(\\)3\\(\\)3': '()3',
+      '\\(\\)3\\(\\)0': '()3',
+      '\\(\\)1\\(\\)0': '()1',
+      '\\(\\)1\\(\\)2': '()2',
+      '\\(\\)2\\(\\)1': '()2',
+      '\\(\\)2\\(\\)2': '()2',
+      '\\(\\)3\\(\\)2': '()2',
+      '\\(\\)2\\(\\)3': '()2',
+      '\\(\\)0\\(\\)0': '()0',
+      '\\(\\)2\\(\\)0': '()2',
+      '\\(\\)0\\(\\)1': '()1',
+      '\\(\\)0\\(\\)2': '()2',
+      '\\(\\)0\\(\\)3': '()3',
+    };
 
-		// Enrich with twos
-		const enrichWithTwos = (input) => {
-			let result = input;
-			let stack = [];
-			let insertions = [];
+    // Enrich with default numerals.
+    // NOTE: If a closing parenthesis is immediately followed by '^', do not insert a numeral.
+    const enrichWithTwos = (input) => {
+      let result = input;
+      let stack = [];
+      let insertions = [];
 
-			for (let i = 0; i < result.length; i++) {
-				if (result[i] === '(') {
-					stack.push(i);
-				} else if (result[i] === ')') {
-					let openIndex = stack.pop();
-					// Check if this pair doesn't already have a number after it
-					if (i === result.length - 1 || isNaN(parseInt(result[i + 1]))) {
-						insertions.push(i + 1);
-					}
-				}
-			}
+      for (let i = 0; i < result.length; i++) {
+        if (result[i] === '(') {
+          stack.push(i);
+        } else if (result[i] === ')') {
+          stack.pop();
+          if (i === result.length - 1 || (result[i + 1] !== '^' && isNaN(parseInt(result[i + 1])))) {
+            insertions.push(i + 1);
+          }
+        }
+      }
 
-			// Insert '2's from right to left
-			for (let i = insertions.length - 1; i >= 0; i--) {
-				result = result.slice(0, insertions[i]) + '2' + result.slice(insertions[i]);
-			}
+      // Insert from right to left.
+      for (let i = insertions.length - 1; i >= 0; i--) {
+        result = result.slice(0, insertions[i]) + '2' + result.slice(insertions[i]);
+      }
 
-			return result;
-		};
+      return result;
+    };
 
-		s = enrichWithTwos(s);
-		console.log("After enrichment:", s);
-	  
-		let prev = '';
-		while (s !== prev) {
-			prev = s;
-			for (const [pattern, replacement] of Object.entries(rules)) {
-				const r = `${s}`;
-				s = s.replace(pattern, replacement);
+    s = enrichWithTwos(s);
 
-				if (s !== r)
-					console.log(s);
-			}
-			// Handle ( ()a)b = ()(a+b mod 4)
-			let r = `${s}`;
-			s = s.replace(/\(\(\)(\d)\)(\d)/g, (_, a, b) => `()${(parseInt(a) + parseInt(b)) % 4}`);
-			if (s !== r)
-				console.log(s);
-		}
-		return s;
-	};
-  
-	let result = str;
-	let prev = '';
-	while (result !== prev) {
-	  prev = result;
-	  result = simplifyBF(result);
-	  if (result !== prev) steps.push(result);
-	}
-	return { result, steps };
+    let prev = '';
+    while (s !== prev) {
+      prev = s;
+      // Apply standard BF replacement rules.
+      for (const [pattern, replacement] of Object.entries(rules)) {
+        s = s.replace(new RegExp(pattern, 'g'), replacement);
+      }
+      
+      // --- New Exponentiation Application Rule ---
+      // This rule replaces any occurrence of (E)^A.
+      // We use a non-greedy regex to capture a parenthesized expression (the left part)
+      // immediately followed by '^' and then an exponent (either a digit or an annotated mark).
+      s = s.replace(/(\(.*?\))\^((?:\(\)\d)|\d+)/g, (match, leftPart, exponentStr) => {
+        // Remove the outer parentheses.
+        let inner = leftPart.slice(1, -1);
+        let v;
+        // If inner matches the pattern "()<digit>", then use that digit;
+        // otherwise default to 0.
+        let m = inner.match(/^\(\)(\d)$/);
+        if (m) {
+          v = parseInt(m[1]);
+        } else {
+          v = 0;
+        }
+        // Determine the exponent value.
+        let a = exponentStr.startsWith("()")
+          ? parseInt(exponentStr.replace(/[()]/g, ''))
+          : parseInt(exponentStr);
+        let w = (v + a) % 4;
+        return `()${w}`;
+      });
+
+      // Apply modular addition for adjacent annotated expressions.
+      s = s.replace(/\(\(\)(\d)\)(\d)/g, (_, a, b) => `()${(parseInt(a) + parseInt(b)) % 4}`);
+    }
+    return s;
+  };
+
+  let result = str;
+  let prev = '';
+  while (result !== prev) {
+    prev = result;
+    result = simplifyBF(result);
+    if (result !== prev) steps.push(result);
+  }
+  return { result, steps };
 };
 
 const measure = (str) => {
@@ -129,13 +159,20 @@ const truthTable = (str, bfMode) => {
       if (variables.includes(term)) {
         return combination[term];
       }
-      return term.replace(new RegExp(Object.keys(combination).join('|'), 'g'), 
+      return term.replace(new RegExp(Object.keys(combination).join('|'), 'g'),
         matched => combination[matched]);
     }).join('');
     const { result, steps } = evaluate(expr, [], bfMode);
-    console.log(result);
     return { ...combination, VALUE: result, steps };
   });
+};
+
+const debounce = (func, wait) => {
+  let timeout;
+  return (...args) => {
+    clearTimeout(timeout);
+    timeout = setTimeout(() => func(...args), wait);
+  };
 };
 
 const LoFTruthTables = () => {
@@ -145,39 +182,85 @@ const LoFTruthTables = () => {
   const [darkMode, setDarkMode] = useState(true);
   const [consoleOutput, setConsoleOutput] = useState('');
   const [bfMode, setBfMode] = useState(false);
+  const [knobValues, setKnobValues] = useState({});
+  const [currentInput, setCurrentInput] = useState('');
 
   useEffect(() => {
     document.body.className = darkMode ? 'dark bg-gray-900 text-white' : 'bg-white text-black';
   }, [darkMode]);
 
-  const handleEvaluate = (string_input=undefined) => {
-    if (!verify(string_input ?? input)) {
+  const debouncedUpdateKnobs = useCallback(
+    debounce((input) => {
+      const dollarVariables = (input.match(/\$[A-Za-z]\w*/g) || []).map(v => v.slice(1));
+      setKnobValues(prev => {
+        const newKnobValues = { ...prev };
+        dollarVariables.forEach(v => {
+          if (!newKnobValues[v]) {
+            newKnobValues[v] = '()0';
+          }
+        });
+        return newKnobValues;
+      });
+    }, 500),
+    []
+  );
+
+  const handleEvaluate = () => {
+    if (!verify(currentInput)) {
       setError('Invalid bracket structure');
       setTable([]);
       setConsoleOutput('');
       return;
     }
     setError('');
-    const results = truthTable(string_input ?? input, bfMode);
+
+    // Replace $ variables with their knob values.
+    const processedInput = currentInput.replace(/\$([A-Za-z]\w*)/g, (_, v) => {
+      const value = knobValues[v] || '0';
+      return bfMode ? `()${value}` : value === '0' ? '()' : '(())';
+    });
+
+    const results = truthTable(processedInput, bfMode);
     setTable(results);
-    
-    // Generate console output
+
+    // Generate console output with evaluation steps.
     const output = results.map((row, index) => {
-      return `Combination ${index + 1}:\n` + 
+      return `Combination ${index + 1}:\n` +
              Object.entries(row)
                .filter(([key]) => key !== 'steps' && key !== 'VALUE')
                .map(([key, value]) => `${key} = ${value}`)
-               .join(', ') + 
-             '\nEvaluation steps:\n' + 
-             row.steps.join('\n') + 
+               .join(', ') +
+             '\nEvaluation steps:\n' +
+             row.steps.join('\n') +
              '\n\n';
     }).join('');
-    
+
     setConsoleOutput(output);
   };
 
+  const handleKnobChange = (variable, value) => {
+    setKnobValues(prev => ({ ...prev, [variable]: value }));
+    handleEvaluate();
+  };
+
+  const handleInputChange = (e) => {
+    const newInput = e.target.value;
+    setCurrentInput(newInput);
+    setInput(newInput);
+    // reset knob values
+    setKnobValues({});
+    debouncedUpdateKnobs(newInput);
+  };
+
+  const handleExampleClick = (exampleString) => {
+    setCurrentInput(exampleString);
+    setInput(exampleString);
+    debouncedUpdateKnobs(exampleString);
+    handleEvaluate();
+  };
+
   const examples = [
-    { caption: 'A ^ B', string: '((A)(B))' },
+    { caption: 'A ^ B', string: '(A)^B' },
     { caption: 'A v B', string: 'A B' },
     { caption: 'A => B', string: '(A) B' },
     { caption: 'A XOR B', string: '(((A)B) ((B)A))' },
@@ -185,6 +268,9 @@ const LoFTruthTables = () => {
     { caption: 'BELL', string: '((((X)(Y)))(((A)B) ((B)A))) (((((A)B) ((B)A)))((X)(Y)))' },
     { caption: 'Syllogism', string: '(A)B (B)C (C)A' },
     { caption: 'Triangle Inequality', string: '((A)B) ((B)C) (C)A' },
+    { caption: 'BF Normal Form', string: '((X)1 X $A1) ((X)3 X $A2) ((X)1 (X) $A3) ((X)3 (X) $A4)' },
+    { caption: 'BF Normal Form Knobs', string: '((X)1 X A1) ((X)3 X A2) ((X)1 (X) A3) ((X)3 (X) A4)' },
+    { caption: 'Exponentiation Example', string: '(A)^B' },
   ];
 
   const pieData = table.length ? (
@@ -214,27 +300,23 @@ const LoFTruthTables = () => {
           <Moon className="h-4 w-4 ml-2" />
         </div>
       </div>
-      
+
       <div className="mb-4">
         <div className="flex flex-col md:flex-col gap-4">
           <input
             type="text"
-            value={input}
-            onChange={(e) => {setInput(e.target.value)}}
+            value={currentInput}
+            onChange={handleInputChange}
             className="w-full p-2 m-2 border rounded dark:bg-gray-800 dark:text-white"
             placeholder="Enter expression"
           />
           <div className="pl-4 pb-4 flex-row text-[20px]">
-            {"Z = "}{ !bfMode ?<LoF style={{fontSize: '20px', height: '100%'}}
-              className=""
-            >  
-              {input}
-          </LoF> : input}
+            {"Z = "}{ !bfMode ? <LoF style={{fontSize: '20px', height: '100%'}}>{currentInput}</LoF> : currentInput }
           </div>
         </div>
-        
+
         <button
-          onClick={()=>handleEvaluate()}
+          onClick={handleEvaluate}
           className="mt-2 m-4 px-4 py-2 bg-blue-500 text-white rounded dark:bg-blue-700"
         >
           Evaluate
@@ -245,7 +327,7 @@ const LoFTruthTables = () => {
         {examples.map((example, index) => (
           <button
             key={index}
-            onClick={() => {setInput(example.string); handleEvaluate(example.string);}}
+            onClick={() => handleExampleClick(example.string)}
             className="px-3 py-1 bg-gray-200 rounded dark:bg-gray-700"
           >
             {example.caption}
@@ -264,17 +346,11 @@ const LoFTruthTables = () => {
         <span className="mr-2">LoF Mode</span>
         <Switch
           checked={bfMode}
-          onChange={() => {setBfMode(!bfMode); handleEvaluate()}}
-          className={`${
-            bfMode ? 'bg-blue-600' : 'bg-gray-200'
-          } relative inline-flex h-6 w-11 items-center rounded-full`}
+          onChange={() => { setBfMode(!bfMode); handleEvaluate(); }}
+          className={`${bfMode ? 'bg-blue-600' : 'bg-gray-200'} relative inline-flex h-6 w-11 items-center rounded-full`}
         >
           <span className="sr-only">Enable BF Mode</span>
-          <span
-            className={`${
-              bfMode ? 'translate-x-6' : 'translate-x-1'
-            } inline-block h-4 w-4 transform rounded-full bg-white transition`}
-          />
+          <span className={`${bfMode ? 'translate-x-6' : 'translate-x-1'} inline-block h-4 w-4 transform rounded-full bg-white transition`} />
         </Switch>
         <span className="ml-2">BF Mode</span>
       </div>
@@ -298,21 +374,10 @@ const LoFTruthTables = () => {
                         {Object.entries(row).filter(([key]) => key !== 'steps').map(([key, value], i) => (
                           <td key={i} className="border p-2 dark:border-gray-600">
                             {!bfMode && key === 'VALUE' ? (value === '' ?
-                              <LoF style={{fontSize: '10px', height: '100%'}}
-                                  className="text-[10px] h-1"
-                                >  
-                                  (())
-                              </LoF>
-                              : <LoF style={{fontSize: '10px', height: '100%'}}
-                                className="text-[10px] h-1"
-                              >  
-                                ()
-                            </LoF>
-                              ) : <LoF style={{fontSize: '10px', height: '100%'}}
-                                    className="text-[10px] h-1"
-                                  >  
-                                    {value}
-                                </LoF>
+                              <LoF style={{fontSize: '10px', height: '100%'}} className="text-[10px] h-1">(())</LoF>
+                              : <LoF style={{fontSize: '10px', height: '100%'}} className="text-[10px] h-1">()</LoF>
+                            )
+                            : <LoF style={{fontSize: '10px', height: '100%'}} className="text-[10px] h-1">{value}</LoF>
                             }
                           </td>
                         ))}
@@ -322,7 +387,20 @@ const LoFTruthTables = () => {
                 </table>
               </div>
             </div>
-            <div className="flex-1 flex justify-center items-center">
+            <div className="flex-1 flex flex-col items-center">
+              <div className="flex flex-wrap justify-center mb-4">
+                {Object.entries(knobValues).map(([variable, value]) => (
+                  <Knob
+                    key={variable}
+                    value={parseInt(value.replace(/[()]/g, ''))} // Convert '()n' to n
+                    onChange={(newValue) => {
+                      handleKnobChange(variable, newValue.toString());
+                      handleEvaluate();
+                    }}
+                    variable={variable}
+                  />
+                ))}
+              </div>
               <PieChart width={200} height={200}>
                 <Pie
                   data={pieData}
@@ -333,13 +411,14 @@ const LoFTruthTables = () => {
                   outerRadius={80}
                   fill="#8884d8"
                   label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
+                  animationDuration={300}
                 >
                   {pieData.map((entry, index) => (
                     <Cell
                       key={`cell-${index}`}
                       fill={darkMode
-                        ? ['#FFFF00', '#FF4500', '#228B22', '#1E90FF'][index] // Dark mode colors
-                        : ['#FFFFE0', '#FF6347', '#32CD32', '#87CEFA'][index] // Light mode colors
+                        ? ['#FFFF00', '#FF4500', '#228B22', '#1E90FF'][index]
+                        : ['#FFFFE0', '#FF6347', '#32CD32', '#87CEFA'][index]
                       }
                     />
                   ))}
@@ -358,8 +437,6 @@ const LoFTruthTables = () => {
           </pre>
         </div>
       )}
-
-      
     </div>
   );
 };
