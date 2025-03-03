@@ -7,6 +7,8 @@ import Knob from './components/Knob';
 import './App.css';
 import LoF from "laws-of-form-react"
 
+import { parseExpressionAndEvaluate } from './bf-parser.js';
+
 const verify = (str) => {
   let count = 0;
   for (let char of str) {
@@ -17,7 +19,41 @@ const verify = (str) => {
   return count === 0;
 };
 
-const evaluate = (str, steps = [], bfMode) => {
+const evaluate = (expression, bfMode=true) => {
+  try {
+    // Here you may define an environment for variables if you want
+    // e.g. { A: 2, B: 1 } meaning A=()2, B=()1
+    // For now, let's do empty environment for demonstration:
+    const env = {};
+
+    const steps = [];
+
+    // const { ast, value } = parseExpressionAndEvaluate(expression, env, bfMode);
+    const { result, steps: finalSteps, error } = parseExpressionAndEvaluate(expression, steps);
+
+    return { result, steps: finalSteps };
+
+    // You can also do a final "simplify" pass if you want, or
+    // convert the result to a string, etc.
+
+    // If in BF mode, the value is in {0,1,2,3}
+    // Convert to BF notation: ()0, ()1, ()2, ()3
+    // if (bfMode) {
+    //   return `()${value}`;
+    // } else {
+    //   // If in LoF mode, interpret "true" as '(())' and "false" as '()'
+    //   return value ? '(())' : '()';
+    // }
+  } catch (err) {
+    console.error(err);
+    return `ERROR: ${err.message}`;
+  }
+};
+
+// Then use it in your truthTable or handleEvaluate logic, etc.
+
+
+const evaluateOld = (str, steps = [], bfMode) => {
   if (bfMode) return evaluateBF(str, steps);
   steps.push(`Start: ${str}`);
   let prev = '';
@@ -140,7 +176,7 @@ const measure = (str) => {
 const generateCombinations = (variables, bfMode) => {
   const combinations = [];
   const n = variables.length;
-  const values = bfMode ? ['()0', '()1', '()2', '()3'] : ['()', '(())'];
+  const values = bfMode ? ['()i0', '()i1', '()i2', '()i3'] : ['()i2', '()i0'];
   for (let i = 0; i < Math.pow(values.length, n); i++) {
     const combination = {};
     for (let j = 0; j < n; j++) {
@@ -196,7 +232,7 @@ const LoFTruthTables = () => {
         const newKnobValues = { ...prev };
         dollarVariables.forEach(v => {
           if (!newKnobValues[v]) {
-            newKnobValues[v] = '()0';
+            newKnobValues[v] = '()i0';
           }
         });
         return newKnobValues;
@@ -260,8 +296,9 @@ const LoFTruthTables = () => {
   };
 
   const examples = [
-    { caption: 'A ^ B', string: '(A)^B' },
+    { caption: 'A ^ B', string: '((A)(B))' },
     { caption: 'A v B', string: 'A B' },
+    { caption: '(A)iB', string: '[A]^B' },
     { caption: 'A => B', string: '(A) B' },
     { caption: 'A XOR B', string: '(((A)B) ((B)A))' },
     { caption: 'A = B', string: '((A)B) ((B)A)' },
@@ -401,6 +438,14 @@ const LoFTruthTables = () => {
                   />
                 ))}
               </div>
+              {/* Add non-zero percentage display */}
+              {table.length > 0 && bfMode && (
+                <div className="mb-4 text-center">
+                  <span className="font-semibold">
+                  Form Fraction (Non-()0 Values): {((table.filter(row => row.VALUE !== '()0').length / table.length) * 100).toFixed(1)}%
+                  </span>
+                </div>
+              )}
               <PieChart width={200} height={200}>
                 <Pie
                   data={pieData}
